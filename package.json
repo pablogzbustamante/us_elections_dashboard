@@ -1,0 +1,15 @@
+{
+  "name": "elections-dashboard",
+  "private": true,
+  "scripts": {
+    "dev":   "concurrently --names \"DB,API,UI\" --prefix-colors \"blue.bold,red.bold,cyan.bold\" \"npm run db\" \"npm run api\" \"npm run ui\"",
+    "db":    "docker compose up db",
+    "api":   "cd backend && python -m uvicorn app.main:app --reload --port 8000",
+    "ui":    "npm --prefix frontend run dev",
+    "etl":   "cd backend && python etl/load.py",
+    "setup": "npm install && npm --prefix frontend install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

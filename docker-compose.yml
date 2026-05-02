@@ -1,0 +1,72 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER:     elections
+      POSTGRES_PASSWORD: elections
+      POSTGRES_DB:       electoral_dashboard
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db.sql:/docker-entrypoint-initdb.d/db.sql
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U elections -d electoral_dashboard"]
+      interval: 5s
+      timeout:  5s
+      retries:  20
+
+  # ── One-time data loader (runs ETL then exits) ──────────────
+  init:
+    build: ./backend
+    command: sh /app/etl/init.sh
+    environment:
+      DATABASE_URL: postgresql://elections:elections@db:5432/electoral_dashboard
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    restart: "no"
+
+  # ── FastAPI backend ─────────────────────────────────────────
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://elections:elections@db:5432/electoral_dashboard
+      CORS_ORIGINS: '["http://localhost", "http://localhost:80"]'
+      GROQ_API_KEY:  ${GROQ_API_KEY}
+      GROQ_MODEL:    ${GROQ_MODEL:-llama-3.3-70b-versatile}
+    depends_on:
+      db:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+
+  # ── React frontend (nginx) ──────────────────────────────────
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  # ── ETL re-run (manual: docker compose run --rm reload) ─────
+  reload:
+    build: ./backend
+    command: python etl/load.py
+    environment:
+      DATABASE_URL: postgresql://elections:elections@db:5432/electoral_dashboard
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    profiles: ["reload"]
+
+volumes:
+  pgdata:

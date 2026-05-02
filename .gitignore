@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+backend/.venv/
+venv/
+
+# Build output
+frontend/dist/
+
+# Secrets — copy .env.example → .env and fill in your key
+.env
+backend/.env
+
+# Database volume data
+pgdata/
+
+# Misc
+*.zip
+.DS_Store
+Thumbs.db
+.ipynb
