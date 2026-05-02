@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python3 -c ' *)",
-      "Bash(python3 -m jupyter nbconvert --to notebook --execute --ExecutePreprocessor.timeout=120 data_cleaning.ipynb --output data_cleaning_executed.ipynb)",
-      "Bash(python3 \"C:/Users/pablo/Documents/uni/sems/sem_4/elections_data_ver2/backend/datasets/run_clean.py\")"
-    ]
-  }
-}
