@@ -20,6 +20,9 @@ backend/.env
 # Database volume data
 pgdata/
 
+# Claude
+.claude/
+
 # Misc
 *.zip
 .DS_Store
