@@ -4,7 +4,6 @@ from app.models.dimensions import DimElection, DimCounty, DimCandidate, DimParty
 from app.models.facts import (
     FactCountyCandidateVotes,
     FactCountyElectionSummary,
-    FactCountyElectionWinnerHistory,
 )
 from app.schemas.elections import ElectionOut, CountyElectionSummaryOut
 
@@ -54,20 +53,19 @@ class ElectionService:
     async def get_winner_history(self, fips: str):
         result = await self.db.execute(
             select(
-                FactCountyElectionWinnerHistory.fips,
+                FactCountyElectionSummary.fips,
                 DimElection.election_year,
-                FactCountyElectionWinnerHistory.winner_name_raw,
+                FactCountyElectionSummary.winner_name_raw,
                 DimParty.party_code,
             )
-            .join(DimElection, FactCountyElectionWinnerHistory.election_id == DimElection.election_id)
+            .join(DimElection, FactCountyElectionSummary.election_id == DimElection.election_id)
             .join(
                 DimCandidate,
-                FactCountyElectionWinnerHistory.winner_candidate_id == DimCandidate.candidate_id,
+                FactCountyElectionSummary.winner_candidate_id == DimCandidate.candidate_id,
                 isouter=True,
             )
             .join(DimParty, DimCandidate.party_id == DimParty.party_id, isouter=True)
-            .where(FactCountyElectionWinnerHistory.fips == fips)
+            .where(FactCountyElectionSummary.fips == fips)
             .order_by(DimElection.election_year)
         )
         return [dict(r) for r in result.mappings().all()]
-

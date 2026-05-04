@@ -95,15 +95,15 @@ def pnone(x):
     return x
 
 
-def to_code_str(x):
-    """1.0 → '1', None stays None."""
+def to_code_int(x):
+    """1.0 → 1 (SMALLINT), None stays None."""
     x = pnone(x)
     if x is None:
         return None
     try:
-        return str(int(float(x)))
+        return int(float(x))
     except (ValueError, TypeError):
-        return str(x)
+        return None
 
 
 def hdr(msg):
@@ -201,20 +201,22 @@ def load_winner_history(cur, el, known_fips):
     cur.execute("SELECT election_year, election_id FROM dim_election WHERE office='President'")
     emap = {yr: eid for yr, eid in cur.fetchall()}
 
+    # Only insert 2016 and 2020 — 2024 already has full rows from load_elections_2024
     rows = []
     for r in el.itertuples(index=False):
         fips = str(r.fips).zfill(5)
         if fips not in known_fips:
             continue
-        for yr, winner in [(2016, r.winner_2016), (2020, r.winner_2020), (2024, r.winner_2024)]:
+        for yr, winner in [(2016, r.winner_2016), (2020, r.winner_2020)]:
             wn = str(winner) if pnone(winner) is not None else "Unknown"
             rows.append((fips, emap[yr], cmap.get(wn), wn))
 
     execute_values(cur,
-        """INSERT INTO fact_county_election_winner_history
-           (fips,election_id,winner_candidate_id,winner_name_raw) VALUES %s ON CONFLICT DO NOTHING""",
+        """INSERT INTO fact_county_election_summary
+           (fips,election_id,winner_candidate_id,winner_name_raw)
+           VALUES %s ON CONFLICT (fips,election_id) DO NOTHING""",
         rows)
-    print(f"  winner_history: {len(rows)}")
+    print(f"  winner history (2016/2020): {len(rows)}")
 
 
 def load_indicators(cur):
@@ -298,8 +300,8 @@ def load_urban_class(cur, urban, known_fips):
         fips = str(r.fips).zfill(5)
         if fips not in known_fips:
             continue
-        rows.append((fips, 2003, to_code_str(r.rucc_2003), to_code_str(r.uic_2003)))
-        rows.append((fips, 2013, to_code_str(r.rucc_2013), to_code_str(r.uic_2013)))
+        rows.append((fips, 2003, to_code_int(r.rucc_2003), to_code_int(r.uic_2003)))
+        rows.append((fips, 2013, to_code_int(r.rucc_2013), to_code_int(r.uic_2013)))
 
     execute_values(cur,
         """INSERT INTO fact_county_urban_class
@@ -366,11 +368,12 @@ def load_religion(cur, rel, known_fips):
 # ── Test queries ──────────────────────────────────────────────────────────────
 QUERIES = [
     ("Q1 · Row counts per table", """
-        SELECT 'dim_state'                        AS tbl, COUNT(*) AS n FROM dim_state          UNION ALL
+        SELECT 'dim_state'                    AS tbl, COUNT(*) AS n FROM dim_state              UNION ALL
         SELECT 'dim_county',                               COUNT(*) FROM dim_county              UNION ALL
+        SELECT 'dim_rucc_code',                            COUNT(*) FROM dim_rucc_code           UNION ALL
+        SELECT 'dim_uic_code',                             COUNT(*) FROM dim_uic_code            UNION ALL
         SELECT 'fact_county_candidate_votes',              COUNT(*) FROM fact_county_candidate_votes UNION ALL
         SELECT 'fact_county_election_summary',             COUNT(*) FROM fact_county_election_summary UNION ALL
-        SELECT 'fact_county_election_winner_history',      COUNT(*) FROM fact_county_election_winner_history UNION ALL
         SELECT 'fact_county_metric',                       COUNT(*) FROM fact_county_metric      UNION ALL
         SELECT 'fact_county_urban_class',                  COUNT(*) FROM fact_county_urban_class UNION ALL
         SELECT 'fact_county_education',                    COUNT(*) FROM fact_county_education   UNION ALL
@@ -404,8 +407,8 @@ QUERIES = [
 
     ("Q5 · Counties that flipped party 2016 → 2024", """
         SELECT COUNT(*) AS flipped
-        FROM fact_county_election_winner_history h16
-        JOIN fact_county_election_winner_history h24 ON h24.fips = h16.fips
+        FROM fact_county_election_summary h16
+        JOIN fact_county_election_summary h24 ON h24.fips = h16.fips
         JOIN dim_election e16 ON e16.election_id = h16.election_id AND e16.election_year = 2016
         JOIN dim_election e24 ON e24.election_id = h24.election_id AND e24.election_year = 2024
         WHERE h16.winner_name_raw <> h24.winner_name_raw

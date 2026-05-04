@@ -152,13 +152,13 @@ class DashboardService:
                 LEFT JOIN dim_party p        ON cand.party_id         = p.party_id
                 LEFT JOIN (
                     SELECT h.fips, h.winner_name_raw
-                    FROM fact_county_election_winner_history h
+                    FROM fact_county_election_summary h
                     JOIN dim_election e ON h.election_id = e.election_id
                     WHERE e.election_year = 2020
                 ) h2020 ON s.fips = h2020.fips
                 LEFT JOIN (
                     SELECT h.fips, h.winner_name_raw
-                    FROM fact_county_election_winner_history h
+                    FROM fact_county_election_summary h
                     JOIN dim_election e ON h.election_id = e.election_id
                     WHERE e.election_year = 2016
                 ) h2016 ON s.fips = h2016.fips

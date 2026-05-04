@@ -257,6 +257,7 @@ CREATE TABLE IF NOT EXISTS fact_county_candidate_votes (
 
 CREATE INDEX idx_votes_candidate ON fact_county_candidate_votes (candidate_id);
 CREATE INDEX idx_votes_election_candidate ON fact_county_candidate_votes (election_id, candidate_id);
+CREATE INDEX idx_votes_fips_election ON fact_county_candidate_votes (fips, election_id);
 CREATE INDEX idx_votes_pct ON fact_county_candidate_votes (vote_pct);
 
 CREATE TABLE IF NOT EXISTS fact_county_election_summary (
@@ -267,23 +268,13 @@ CREATE TABLE IF NOT EXISTS fact_county_election_summary (
   winner_name_raw VARCHAR(160),
   margin_votes INT,
   margin_pct NUMERIC(10,6) CHECK (margin_pct IS NULL OR margin_pct BETWEEN 0 AND 100),
-  competitiveness_score NUMERIC(10,6) CHECK (competitiveness_score IS NULL OR competitiveness_score BETWEEN 0 AND 100),
+  competitiveness_score NUMERIC(10,6) CHECK (competitiveness_score IS NULL OR competitiveness_score BETWEEN 0 AND 1),
   PRIMARY KEY (fips, election_id)
 );
 
 CREATE INDEX idx_summary_election_winner ON fact_county_election_summary (election_id, winner_candidate_id);
 CREATE INDEX idx_summary_margin ON fact_county_election_summary (margin_pct);
 CREATE INDEX idx_summary_competitiveness ON fact_county_election_summary (competitiveness_score);
-
-CREATE TABLE IF NOT EXISTS fact_county_election_winner_history (
-  fips CHAR(5) NOT NULL REFERENCES dim_county(fips),
-  election_id SMALLINT NOT NULL REFERENCES dim_election(election_id),
-  winner_candidate_id INT REFERENCES dim_candidate(candidate_id),
-  winner_name_raw VARCHAR(160) NOT NULL,
-  PRIMARY KEY (fips, election_id)
-);
-
-CREATE INDEX idx_winner_history_winner ON fact_county_election_winner_history (winner_candidate_id);
 
 CREATE TABLE IF NOT EXISTS dim_indicator (
   indicator_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -327,13 +318,26 @@ CREATE TABLE IF NOT EXISTS fact_county_education (
 CREATE INDEX idx_education_period_level ON fact_county_education (period_label, education_level_id);
 CREATE INDEX idx_education_pct ON fact_county_education (education_level_id, adults_pct);
 
+CREATE TABLE IF NOT EXISTS dim_rucc_code (
+  code        SMALLINT    NOT NULL PRIMARY KEY,
+  description VARCHAR(200) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dim_uic_code (
+  code        SMALLINT    NOT NULL PRIMARY KEY,
+  description VARCHAR(200) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS fact_county_urban_class (
-  fips CHAR(5) NOT NULL REFERENCES dim_county(fips),
-  classification_year SMALLINT NOT NULL,
-  rural_urban_code VARCHAR(20),
-  urban_influence_code VARCHAR(20),
+  fips                  CHAR(5)  NOT NULL REFERENCES dim_county(fips),
+  classification_year   SMALLINT NOT NULL,
+  rural_urban_code      SMALLINT REFERENCES dim_rucc_code(code),
+  urban_influence_code  SMALLINT REFERENCES dim_uic_code(code),
   PRIMARY KEY (fips, classification_year)
 );
+
+CREATE INDEX idx_urban_class_rucc ON fact_county_urban_class (rural_urban_code);
+CREATE INDEX idx_urban_class_uic  ON fact_county_urban_class (urban_influence_code);
 
 CREATE TABLE IF NOT EXISTS dim_religious_group (
   group_code VARCHAR(20) NOT NULL PRIMARY KEY,
@@ -434,6 +438,33 @@ INSERT INTO dim_education_level (education_level_code, education_level_name, lev
   ('bachelors_or_higher',      'Bachelor degree or higher',       4)
 ON CONFLICT (education_level_code) DO NOTHING;
 
+INSERT INTO dim_rucc_code (code, description) VALUES
+  (1, 'Metro – Counties in metro areas of 1 million pop or more'),
+  (2, 'Metro – Counties in metro areas of 250,000 to 1 million pop'),
+  (3, 'Metro – Counties in metro areas of fewer than 250,000 pop'),
+  (4, 'Nonmetro – Urban pop 20,000+, adjacent to a metro area'),
+  (5, 'Nonmetro – Urban pop 20,000+, not adjacent to a metro area'),
+  (6, 'Nonmetro – Urban pop 2,500–19,999, adjacent to a metro area'),
+  (7, 'Nonmetro – Urban pop 2,500–19,999, not adjacent to a metro area'),
+  (8, 'Nonmetro – Completely rural or <2,500 urban pop, adjacent to metro'),
+  (9, 'Nonmetro – Completely rural or <2,500 urban pop, not adjacent to metro')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO dim_uic_code (code, description) VALUES
+  (1,  'In large metro areas of 1+ million residents'),
+  (2,  'In small metro areas of less than 1 million residents'),
+  (3,  'Micropolitan area adjacent to large metro area'),
+  (4,  'Noncore adjacent to large metro area with own town of 10,000+'),
+  (5,  'Micropolitan area not adjacent to a metro area'),
+  (6,  'Noncore adjacent to large metro area with no town >= 2,500'),
+  (7,  'Micropolitan area adjacent to small metro area'),
+  (8,  'Noncore adjacent to small metro area with own town of 10,000+'),
+  (9,  'Noncore adjacent to small metro area with no town >= 2,500'),
+  (10, 'Micropolitan area not adjacent to a metro or micro area'),
+  (11, 'Noncore adjacent to micro area (not adjacent to metro)'),
+  (12, 'Noncore not adjacent to metro or micro area')
+ON CONFLICT (code) DO NOTHING;
+
 -- ============================================================
 -- Migration: drop removed columns
 -- Run against an existing database (safe to re-run on fresh installs where columns don't exist)
@@ -465,8 +496,6 @@ ALTER TABLE fact_county_candidate_votes     DROP COLUMN IF EXISTS source_file;
 ALTER TABLE fact_county_candidate_votes     DROP COLUMN IF EXISTS loaded_at;
 ALTER TABLE fact_county_election_summary    DROP COLUMN IF EXISTS source_file;
 ALTER TABLE fact_county_election_summary    DROP COLUMN IF EXISTS loaded_at;
-ALTER TABLE fact_county_election_winner_history DROP COLUMN IF EXISTS source_file;
-ALTER TABLE fact_county_election_winner_history DROP COLUMN IF EXISTS loaded_at;
 ALTER TABLE fact_county_metric      DROP COLUMN IF EXISTS source_file;
 ALTER TABLE fact_county_metric      DROP COLUMN IF EXISTS loaded_at;
 ALTER TABLE fact_county_education   DROP COLUMN IF EXISTS source_file;
@@ -476,3 +505,45 @@ ALTER TABLE fact_county_urban_class DROP COLUMN IF EXISTS source_file;
 ALTER TABLE fact_county_urban_class DROP COLUMN IF EXISTS loaded_at;
 ALTER TABLE fact_county_religion    DROP COLUMN IF EXISTS source_file;
 ALTER TABLE fact_county_religion    DROP COLUMN IF EXISTS loaded_at;
+
+-- ============================================================
+-- Structural migrations (existing databases only)
+-- ============================================================
+
+-- Drop redundant winner-history table; data is in fact_county_election_summary
+DROP TABLE IF EXISTS fact_county_election_winner_history CASCADE;
+
+-- Create RUCC/UIC dimension tables if not already created above
+CREATE TABLE IF NOT EXISTS dim_rucc_code (
+  code        SMALLINT    NOT NULL PRIMARY KEY,
+  description VARCHAR(200) NOT NULL
+);
+CREATE TABLE IF NOT EXISTS dim_uic_code (
+  code        SMALLINT    NOT NULL PRIMARY KEY,
+  description VARCHAR(200) NOT NULL
+);
+
+
+-- Add FK constraints (will error if already present — safe to skip on re-runs)
+DO $$ BEGIN
+  ALTER TABLE fact_county_urban_class
+    ADD CONSTRAINT fk_urban_rucc FOREIGN KEY (rural_urban_code) REFERENCES dim_rucc_code(code);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE fact_county_urban_class
+    ADD CONSTRAINT fk_urban_uic  FOREIGN KEY (urban_influence_code) REFERENCES dim_uic_code(code);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Add missing composite index on candidate votes (idempotent)
+CREATE INDEX IF NOT EXISTS idx_votes_fips_election ON fact_county_candidate_votes (fips, election_id);
+CREATE INDEX IF NOT EXISTS idx_urban_class_rucc    ON fact_county_urban_class (rural_urban_code);
+CREATE INDEX IF NOT EXISTS idx_urban_class_uic     ON fact_county_urban_class (urban_influence_code);
+
+-- Fix competitiveness_score CHECK constraint: values are 0-1, not 0-100
+DO $$ BEGIN
+  ALTER TABLE fact_county_election_summary
+    DROP CONSTRAINT IF EXISTS fact_county_election_summary_competitiveness_score_check;
+  ALTER TABLE fact_county_election_summary
+    ADD CONSTRAINT fact_county_election_summary_competitiveness_score_check
+      CHECK (competitiveness_score IS NULL OR competitiveness_score BETWEEN 0 AND 1);
+EXCEPTION WHEN others THEN NULL; END $$;
