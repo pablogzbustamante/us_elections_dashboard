@@ -3,8 +3,6 @@ export const fmtPct = (v, decimals = 1) =>
 
 export const fmtNum = (v) => (v != null ? Number(v).toLocaleString() : "-");
 
-export const fmtUSD = (v) => (v != null ? `$${Number(v).toLocaleString()}` : "-");
-
 export const fmtMargin = (v) => {
   if (v == null) return "-";
   const n = Number(v);

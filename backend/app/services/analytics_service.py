@@ -5,9 +5,7 @@ from app.models.facts import (
     FactCountyMetric,
     FactCountyEducation,
     FactCountyReligion,
-    FactCountyUrbanClass,
 )
-from app.schemas.demographics import UrbanClassOut
 
 
 class AnalyticsService:
@@ -63,7 +61,6 @@ class AnalyticsService:
                 FactCountyReligion.fips,
                 DimReligiousGroup.group_code,
                 DimReligiousGroup.group_name,
-                DimReligiousGroup.tradition,
                 FactCountyReligion.congregations,
                 FactCountyReligion.adherents,
                 FactCountyReligion.pct_total_population,
@@ -73,33 +70,6 @@ class AnalyticsService:
             .order_by(FactCountyReligion.adherents.desc())
         )
         return [dict(r) for r in result.mappings().all()]
-
-    async def get_top_religion_by_county(self):
-        """Dominant religious group per county by adherent count."""
-        result = await self.db.execute(
-            text("""
-                SELECT DISTINCT ON (r.fips)
-                    r.fips,
-                    g.group_code,
-                    g.group_name,
-                    g.tradition,
-                    r.adherents,
-                    r.pct_total_population
-                FROM fact_county_religion r
-                JOIN dim_religious_group g ON r.group_code = g.group_code
-                WHERE r.adherents IS NOT NULL
-                ORDER BY r.fips, r.adherents DESC
-            """)
-        )
-        return [dict(r) for r in result.mappings().all()]
-
-    async def get_urban_class(self, fips: str):
-        result = await self.db.execute(
-            select(FactCountyUrbanClass)
-            .where(FactCountyUrbanClass.fips == fips)
-            .order_by(FactCountyUrbanClass.classification_year)
-        )
-        return [UrbanClassOut.model_validate(r) for r in result.scalars().all()]
 
     async def get_correlation(self, indicator_code: str, election_id: int):
         """Pearson correlation between a demographic indicator and county vote margin."""

@@ -16,6 +16,7 @@ frontend/dist/
 # Secrets — copy .env.example → .env and fill in your key
 .env
 backend/.env
+.claude
 
 # Database volume data
 pgdata/

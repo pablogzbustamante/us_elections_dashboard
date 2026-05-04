@@ -58,15 +58,6 @@ async def party_comparison(
     return await DashboardService(db).get_party_comparison(election_id)
 
 
-@router.get("/region-breakdown")
-async def region_breakdown(
-    election_id: int = Query(...),
-    db: AsyncSession = Depends(get_db),
-):
-    """Vote totals broken down by Census region."""
-    return await DashboardService(db).get_region_breakdown(election_id)
-
-
 @router.get("/state-map")
 async def state_map_data(
     election_id: int = Query(...),

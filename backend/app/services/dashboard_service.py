@@ -83,7 +83,6 @@ class DashboardService:
                 SELECT
                     c.state_abbr,
                     st.state_name,
-                    st.region,
                     SUM(s.total_votes)                                              AS total_votes,
                     ROUND(AVG(s.margin_pct)::numeric, 4)                            AS avg_margin_pct,
                     COUNT(*)                                                         AS county_count,
@@ -94,7 +93,7 @@ class DashboardService:
                 JOIN dim_state st  ON c.state_abbr    = st.state_abbr
                 WHERE s.election_id = :election_id
                   AND s.total_votes IS NOT NULL
-                GROUP BY c.state_abbr, st.state_name, st.region
+                GROUP BY c.state_abbr, st.state_name
                 ORDER BY st.state_name
             """),
             {"election_id": election_id},
@@ -188,31 +187,6 @@ class DashboardService:
                   AND s.winner_candidate_id IS NOT NULL
                 GROUP BY p.party_code
                 ORDER BY counties_won DESC
-            """),
-            {"election_id": election_id},
-        )
-        return [dict(r) for r in result.mappings().all()]
-
-    async def get_region_breakdown(self, election_id: int):
-        """Vote totals broken down by Census region."""
-        result = await self.db.execute(
-            text("""
-                SELECT
-                    st.region,
-                    p.party_code,
-                    SUM(v.votes)                               AS total_votes,
-                    COUNT(DISTINCT c.fips)                     AS county_count,
-                    ROUND(AVG(v.vote_pct)::numeric, 4)        AS avg_vote_pct
-                FROM fact_county_candidate_votes v
-                JOIN dim_county c  ON v.fips          = c.fips
-                JOIN dim_state st  ON c.state_abbr    = st.state_abbr
-                JOIN dim_candidate cand ON v.candidate_id = cand.candidate_id
-                LEFT JOIN dim_party p ON cand.party_id = p.party_id
-                WHERE v.election_id = :election_id
-                  AND p.party_code IN ('REP', 'DEM')
-                  AND st.region IS NOT NULL
-                GROUP BY st.region, p.party_code
-                ORDER BY st.region, p.party_code
             """),
             {"election_id": election_id},
         )

@@ -192,9 +192,9 @@ def load_winner_history(cur, el, known_fips):
     cur.execute("SELECT party_id FROM dim_party WHERE party_code='DEM'")
     dem_pid = cur.fetchone()[0]
     execute_values(cur,
-        "INSERT INTO dim_candidate (party_id, candidate_name, candidate_search_text) VALUES %s ON CONFLICT (candidate_name,party_id) DO NOTHING",
-        [(dem_pid, "Biden",   "Joe Biden Democratic presidential candidate"),
-         (dem_pid, "Clinton", "Hillary Clinton Democratic presidential candidate")])
+        "INSERT INTO dim_candidate (party_id, candidate_name) VALUES %s ON CONFLICT (candidate_name,party_id) DO NOTHING",
+        [(dem_pid, "Biden"),
+         (dem_pid, "Clinton")])
 
     cur.execute("SELECT candidate_name, candidate_id FROM dim_candidate")
     cmap = {n: i for n, i in cur.fetchall()}
@@ -220,11 +220,11 @@ def load_winner_history(cur, el, known_fips):
 def load_indicators(cur):
     rows = []
     for _, code, name, cat, unit, vtype in DEMO_INDICATORS:
-        rows.append((code, name, cat, unit, "DemographicsData.csv", vtype))
+        rows.append((code, name, cat, unit, vtype))
     for _, code, name, cat, unit, vtype in POP_INDICATORS:
-        rows.append((code, name, cat, unit, "PopulationDensityData.csv", vtype))
+        rows.append((code, name, cat, unit, vtype))
     execute_values(cur,
-        """INSERT INTO dim_indicator (indicator_code,indicator_name,category,unit,source_file,value_type)
+        """INSERT INTO dim_indicator (indicator_code,indicator_name,category,unit,value_type)
            VALUES %s ON CONFLICT (indicator_code) DO NOTHING""",
         rows)
     print(f"  indicators: {len(rows)}")
@@ -261,10 +261,10 @@ def load_demographics(cur, dem, el, known_fips):
                 continue
             iid = imap.get(code)
             if iid:
-                rows.append((fips, iid, "current", float(val), "DemographicsData.csv"))
+                rows.append((fips, iid, "current", float(val)))
 
     execute_values(cur,
-        "INSERT INTO fact_county_metric (fips,indicator_id,period_label,metric_value,source_file) VALUES %s ON CONFLICT DO NOTHING",
+        "INSERT INTO fact_county_metric (fips,indicator_id,period_label,metric_value) VALUES %s ON CONFLICT DO NOTHING",
         rows, page_size=2000)
     print(f"  demographic metrics: {len(rows)}")
 
@@ -284,10 +284,10 @@ def load_pop_density(cur, pop, known_fips):
                 continue
             iid = imap.get(code)
             if iid:
-                rows.append((fips, iid, "current", float(val), "PopulationDensityData.csv"))
+                rows.append((fips, iid, "current", float(val)))
 
     execute_values(cur,
-        "INSERT INTO fact_county_metric (fips,indicator_id,period_label,metric_value,source_file) VALUES %s ON CONFLICT DO NOTHING",
+        "INSERT INTO fact_county_metric (fips,indicator_id,period_label,metric_value) VALUES %s ON CONFLICT DO NOTHING",
         rows, page_size=2000)
     print(f"  pop density metrics: {len(rows)}")
 
@@ -298,13 +298,12 @@ def load_urban_class(cur, urban, known_fips):
         fips = str(r.fips).zfill(5)
         if fips not in known_fips:
             continue
-        rows.append((fips, 2003, to_code_str(r.rucc_2003), to_code_str(r.uic_2003), None))
-        cat = str(r.urban_category_2013) if pnone(r.urban_category_2013) is not None else None
-        rows.append((fips, 2013, to_code_str(r.rucc_2013), to_code_str(r.uic_2013), cat))
+        rows.append((fips, 2003, to_code_str(r.rucc_2003), to_code_str(r.uic_2003)))
+        rows.append((fips, 2013, to_code_str(r.rucc_2013), to_code_str(r.uic_2013)))
 
     execute_values(cur,
         """INSERT INTO fact_county_urban_class
-           (fips,classification_year,rural_urban_code,urban_influence_code,urban_category)
+           (fips,classification_year,rural_urban_code,urban_influence_code)
            VALUES %s ON CONFLICT DO NOTHING""",
         rows, page_size=500)
     print(f"  urban_class: {len(rows)} ({len(rows)//2} counties × 2 years)")
@@ -426,15 +425,15 @@ QUERIES = [
           AND el.education_level_code = 'bachelors_or_higher'
         GROUP BY fe.period_label ORDER BY fe.period_label"""),
 
-    ("Q8 · Urban category vs avg Trump 2024 vote %", """
-        SELECT uc.urban_category, COUNT(DISTINCT uc.fips) AS counties,
+    ("Q8 · Rural-urban code vs avg Trump 2024 vote %", """
+        SELECT uc.rural_urban_code, COUNT(DISTINCT uc.fips) AS counties,
                ROUND(AVG(v.vote_pct)::numeric, 2) AS avg_trump_pct
         FROM fact_county_urban_class uc
         JOIN fact_county_candidate_votes v ON v.fips = uc.fips
         JOIN dim_candidate c ON c.candidate_id = v.candidate_id AND c.candidate_name = 'Trump'
         JOIN dim_election  e ON e.election_id  = v.election_id  AND e.election_year  = 2024
-        WHERE uc.classification_year = 2013 AND uc.urban_category IS NOT NULL
-        GROUP BY uc.urban_category ORDER BY avg_trump_pct DESC"""),
+        WHERE uc.classification_year = 2013 AND uc.rural_urban_code IS NOT NULL
+        GROUP BY uc.rural_urban_code ORDER BY avg_trump_pct DESC"""),
 
     ("Q9 · Median income by 2024 winner", """
         SELECT es.winner_name_raw,

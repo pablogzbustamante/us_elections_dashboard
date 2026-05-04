@@ -182,11 +182,7 @@ CREATE INDEX idx_stg_religion_group_code ON stg_religion_raw (group_code);
 
 CREATE TABLE IF NOT EXISTS dim_state (
   state_abbr CHAR(2) NOT NULL PRIMARY KEY,
-  state_name VARCHAR(100) NOT NULL UNIQUE,
-  region VARCHAR(80),
-  division VARCHAR(80),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  state_name VARCHAR(100) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS dim_county (
@@ -195,10 +191,6 @@ CREATE TABLE IF NOT EXISTS dim_county (
   county_name VARCHAR(160) NOT NULL,
   county_type VARCHAR(60),
   county_search_text VARCHAR(320),
-  latitude NUMERIC(10,7),
-  longitude NUMERIC(10,7),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (state_abbr, county_name)
 );
 
@@ -228,7 +220,6 @@ CREATE TABLE IF NOT EXISTS dim_election (
   office VARCHAR(80) NOT NULL DEFAULT 'President',
   election_type VARCHAR(60) NOT NULL DEFAULT 'General',
   country VARCHAR(80) NOT NULL DEFAULT 'United States',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (election_year, office, election_type, country)
 );
 
@@ -238,16 +229,13 @@ CREATE TABLE IF NOT EXISTS dim_party (
   party_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   party_name VARCHAR(100) NOT NULL UNIQUE,
   party_code VARCHAR(30) UNIQUE,
-  ideology_label VARCHAR(80),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  ideology_label VARCHAR(80)
 );
 
 CREATE TABLE IF NOT EXISTS dim_candidate (
   candidate_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   party_id SMALLINT REFERENCES dim_party(party_id),
   candidate_name VARCHAR(160) NOT NULL,
-  candidate_search_text VARCHAR(260),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (candidate_name, party_id)
 );
 
@@ -264,8 +252,6 @@ CREATE TABLE IF NOT EXISTS fact_county_candidate_votes (
   votes INT,
   vote_pct NUMERIC(10,6) CHECK (vote_pct IS NULL OR vote_pct BETWEEN 0 AND 100),
   is_winner BOOLEAN NOT NULL DEFAULT FALSE,
-  source_file VARCHAR(120) NOT NULL DEFAULT 'elections_data.csv',
-  loaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (fips, election_id, candidate_id)
 );
 
@@ -282,8 +268,6 @@ CREATE TABLE IF NOT EXISTS fact_county_election_summary (
   margin_votes INT,
   margin_pct NUMERIC(10,6) CHECK (margin_pct IS NULL OR margin_pct BETWEEN 0 AND 100),
   competitiveness_score NUMERIC(10,6) CHECK (competitiveness_score IS NULL OR competitiveness_score BETWEEN 0 AND 100),
-  source_file VARCHAR(120) NOT NULL DEFAULT 'elections_data.csv',
-  loaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (fips, election_id)
 );
 
@@ -296,8 +280,6 @@ CREATE TABLE IF NOT EXISTS fact_county_election_winner_history (
   election_id SMALLINT NOT NULL REFERENCES dim_election(election_id),
   winner_candidate_id INT REFERENCES dim_candidate(candidate_id),
   winner_name_raw VARCHAR(160) NOT NULL,
-  source_file VARCHAR(120) NOT NULL DEFAULT 'elections_data.csv',
-  loaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (fips, election_id)
 );
 
@@ -309,11 +291,8 @@ CREATE TABLE IF NOT EXISTS dim_indicator (
   indicator_name VARCHAR(220) NOT NULL,
   category VARCHAR(80) NOT NULL,
   unit VARCHAR(60) NOT NULL,
-  source_file VARCHAR(120) NOT NULL,
   value_type VARCHAR(20) NOT NULL
-    CHECK (value_type IN ('count','percent','currency','ratio','density','area','minutes','index')),
-  business_use TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    CHECK (value_type IN ('count','percent','currency','ratio','density','area','minutes','index'))
 );
 
 CREATE INDEX idx_indicator_category ON dim_indicator (category);
@@ -323,8 +302,6 @@ CREATE TABLE IF NOT EXISTS fact_county_metric (
   indicator_id SMALLINT NOT NULL REFERENCES dim_indicator(indicator_id),
   period_label VARCHAR(30) NOT NULL DEFAULT 'current',
   metric_value NUMERIC(20,4),
-  source_file VARCHAR(120) NOT NULL,
-  loaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (fips, indicator_id, period_label)
 );
 
@@ -335,8 +312,7 @@ CREATE TABLE IF NOT EXISTS dim_education_level (
   education_level_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   education_level_code VARCHAR(60) NOT NULL UNIQUE,
   education_level_name VARCHAR(160) NOT NULL,
-  level_order SMALLINT NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  level_order SMALLINT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS fact_county_education (
@@ -345,8 +321,6 @@ CREATE TABLE IF NOT EXISTS fact_county_education (
   education_level_id SMALLINT NOT NULL REFERENCES dim_education_level(education_level_id),
   adults_count INT,
   adults_pct NUMERIC(10,4) CHECK (adults_pct IS NULL OR adults_pct BETWEEN 0 AND 100),
-  source_file VARCHAR(120) NOT NULL DEFAULT 'education.csv',
-  loaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (fips, period_label, education_level_id)
 );
 
@@ -358,20 +332,13 @@ CREATE TABLE IF NOT EXISTS fact_county_urban_class (
   classification_year SMALLINT NOT NULL,
   rural_urban_code VARCHAR(20),
   urban_influence_code VARCHAR(20),
-  urban_category VARCHAR(80),
-  source_file VARCHAR(120) NOT NULL DEFAULT 'PopulationDensityData.csv',
-  loaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (fips, classification_year)
 );
-
-CREATE INDEX idx_urban_category ON fact_county_urban_class (classification_year, urban_category);
 
 CREATE TABLE IF NOT EXISTS dim_religious_group (
   group_code VARCHAR(20) NOT NULL PRIMARY KEY,
   group_name VARCHAR(240) NOT NULL UNIQUE,
-  tradition VARCHAR(120),
-  group_search_text VARCHAR(360),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  group_search_text VARCHAR(360)
 );
 
 CREATE TABLE IF NOT EXISTS fact_county_religion (
@@ -381,8 +348,6 @@ CREATE TABLE IF NOT EXISTS fact_county_religion (
   adherents INT,
   pct_total_adherents NUMERIC(10,4) CHECK (pct_total_adherents IS NULL OR pct_total_adherents BETWEEN 0 AND 100),
   pct_total_population NUMERIC(10,4) CHECK (pct_total_population IS NULL OR pct_total_population BETWEEN 0 AND 100),
-  source_file VARCHAR(120) NOT NULL DEFAULT 'religion_data.csv',
-  loaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (fips, group_code)
 );
 
@@ -446,13 +411,13 @@ INSERT INTO dim_party (party_name, party_code, ideology_label) VALUES
   ('Unknown',           'UNK', NULL)
 ON CONFLICT (party_name) DO NOTHING;
 
-INSERT INTO dim_candidate (party_id, candidate_name, candidate_search_text)
-SELECT p.party_id, v.cname, v.stxt
+INSERT INTO dim_candidate (party_id, candidate_name)
+SELECT p.party_id, v.cname
 FROM (VALUES
-  ('REP', 'Trump',  'Donald Trump Republican presidential candidate'),
-  ('DEM', 'Harris', 'Kamala Harris Democratic presidential candidate'),
-  ('GRN', 'Stein',  'Jill Stein Green Party presidential candidate')
-) AS v(pcode, cname, stxt)
+  ('REP', 'Trump'),
+  ('DEM', 'Harris'),
+  ('GRN', 'Stein')
+) AS v(pcode, cname)
 JOIN dim_party p ON p.party_code = v.pcode
 ON CONFLICT (candidate_name, party_id) DO NOTHING;
 
@@ -470,19 +435,44 @@ INSERT INTO dim_education_level (education_level_code, education_level_name, lev
 ON CONFLICT (education_level_code) DO NOTHING;
 
 -- ============================================================
--- Trigger: auto-update updated_at
+-- Migration: drop removed columns
+-- Run against an existing database (safe to re-run on fresh installs where columns don't exist)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION trg_set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS set_updated_at ON dim_state;
+DROP TRIGGER IF EXISTS set_updated_at ON dim_county;
+DROP FUNCTION IF EXISTS trg_set_updated_at();
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON dim_state
-  FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
-
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON dim_county
-  FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
+ALTER TABLE dim_state               DROP COLUMN IF EXISTS region;
+ALTER TABLE dim_state               DROP COLUMN IF EXISTS division;
+ALTER TABLE dim_state               DROP COLUMN IF EXISTS created_at;
+ALTER TABLE dim_state               DROP COLUMN IF EXISTS updated_at;
+ALTER TABLE dim_county              DROP COLUMN IF EXISTS latitude;
+ALTER TABLE dim_county              DROP COLUMN IF EXISTS longitude;
+ALTER TABLE dim_county              DROP COLUMN IF EXISTS created_at;
+ALTER TABLE dim_county              DROP COLUMN IF EXISTS updated_at;
+ALTER TABLE dim_election            DROP COLUMN IF EXISTS created_at;
+ALTER TABLE dim_party               DROP COLUMN IF EXISTS created_at;
+ALTER TABLE dim_candidate           DROP COLUMN IF EXISTS candidate_search_text;
+ALTER TABLE dim_candidate           DROP COLUMN IF EXISTS created_at;
+ALTER TABLE dim_indicator           DROP COLUMN IF EXISTS business_use;
+ALTER TABLE dim_indicator           DROP COLUMN IF EXISTS source_file;
+ALTER TABLE dim_indicator           DROP COLUMN IF EXISTS created_at;
+ALTER TABLE dim_education_level     DROP COLUMN IF EXISTS created_at;
+ALTER TABLE dim_religious_group     DROP COLUMN IF EXISTS tradition;
+ALTER TABLE dim_religious_group     DROP COLUMN IF EXISTS created_at;
+ALTER TABLE fact_county_candidate_votes     DROP COLUMN IF EXISTS source_file;
+ALTER TABLE fact_county_candidate_votes     DROP COLUMN IF EXISTS loaded_at;
+ALTER TABLE fact_county_election_summary    DROP COLUMN IF EXISTS source_file;
+ALTER TABLE fact_county_election_summary    DROP COLUMN IF EXISTS loaded_at;
+ALTER TABLE fact_county_election_winner_history DROP COLUMN IF EXISTS source_file;
+ALTER TABLE fact_county_election_winner_history DROP COLUMN IF EXISTS loaded_at;
+ALTER TABLE fact_county_metric      DROP COLUMN IF EXISTS source_file;
+ALTER TABLE fact_county_metric      DROP COLUMN IF EXISTS loaded_at;
+ALTER TABLE fact_county_education   DROP COLUMN IF EXISTS source_file;
+ALTER TABLE fact_county_education   DROP COLUMN IF EXISTS loaded_at;
+ALTER TABLE fact_county_urban_class DROP COLUMN IF EXISTS urban_category;
+ALTER TABLE fact_county_urban_class DROP COLUMN IF EXISTS source_file;
+ALTER TABLE fact_county_urban_class DROP COLUMN IF EXISTS loaded_at;
+ALTER TABLE fact_county_religion    DROP COLUMN IF EXISTS source_file;
+ALTER TABLE fact_county_religion    DROP COLUMN IF EXISTS loaded_at;

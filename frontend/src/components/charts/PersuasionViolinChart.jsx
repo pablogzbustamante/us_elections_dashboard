@@ -9,7 +9,7 @@ const SEGMENTS = [
 
 const MARGIN  = { top: 15, right: 18, bottom: 52, left: 60 };
 const KDE_N   = 80;
-const H       = 300;
+const H       = 260;
 
 function silvermanBw(vals) {
   const n = vals.length;
@@ -113,7 +113,7 @@ export default function PersuasionViolinChart({ data = [] }) {
   const tipFlip = tip && (tip.xc + MARGIN.left) > w * 0.6;
 
   return (
-    <div ref={containerRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+    <div ref={containerRef} style={{ width: "100%", height: H, position: "relative" }}>
       <svg width={w} height={H} style={{ display: "block" }}>
         <g transform={`translate(${MARGIN.left},0)`}>
           {yTicks.map(v => (

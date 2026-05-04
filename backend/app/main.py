@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine
-from app.routers import elections, counties, analytics, states, dashboard, chat_query, standard_query
+from app.routers import elections, counties, analytics, dashboard, chat_query, standard_query
 
 
 @asynccontextmanager
@@ -29,7 +29,6 @@ app.add_middleware(
 app.include_router(elections.router, prefix="/api")
 app.include_router(counties.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
-app.include_router(states.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(chat_query.router, prefix="/api")
 app.include_router(standard_query.router, prefix="/api")

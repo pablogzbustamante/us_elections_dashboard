@@ -40,8 +40,7 @@ Education:
 - bachelor_degree_or_higher (%), high_school_or_higher (%)
 
 Religion:
-- religious_adherence (%), evangelical_adherence (%), catholic_adherence (%)
-- mainline_protestant_adherence (%), other_religion_adherence (%)
+- religious_adherence (%)
 
 Misc:
 - mean_travel_time (minutes), percent_female (%), veterans (count), language_noneng (%)

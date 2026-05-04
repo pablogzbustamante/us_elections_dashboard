@@ -34,16 +34,6 @@ async def religion(fips: str, db: AsyncSession = Depends(get_db)):
     return await AnalyticsService(db).get_religion(fips)
 
 
-@router.get("/counties/{fips}/urban-class")
-async def urban_class(fips: str, db: AsyncSession = Depends(get_db)):
-    return await AnalyticsService(db).get_urban_class(fips)
-
-
-@router.get("/religion/top-by-county")
-async def top_religion_by_county(db: AsyncSession = Depends(get_db)):
-    return await AnalyticsService(db).get_top_religion_by_county()
-
-
 @router.get("/education/county-summary")
 async def education_county_summary(
     election_id: int = Query(...),

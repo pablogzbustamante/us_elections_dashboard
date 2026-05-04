@@ -85,18 +85,8 @@ metrics AS (
 religion AS (
     SELECT
         r.fips,
-        COALESCE(SUM(r.pct_total_population), 0)                                                       AS religious_adherence,
-        COALESCE(SUM(r.pct_total_population) FILTER (WHERE g.tradition ILIKE '%Evangelical%'), 0)      AS evangelical_adherence,
-        COALESCE(SUM(r.pct_total_population) FILTER (WHERE g.tradition ILIKE '%Catholic%'), 0)         AS catholic_adherence,
-        COALESCE(SUM(r.pct_total_population) FILTER (WHERE g.tradition ILIKE '%Mainline%'), 0)         AS mainline_protestant_adherence,
-        COALESCE(SUM(r.pct_total_population) FILTER (
-            WHERE g.tradition ILIKE '%Islam%'
-               OR g.tradition ILIKE '%Jewish%'
-               OR g.tradition ILIKE '%Hindu%'
-               OR g.tradition ILIKE '%Buddhist%'
-        ), 0) AS other_religion_adherence
+        COALESCE(SUM(r.pct_total_population), 0) AS religious_adherence
     FROM fact_county_religion r
-    JOIN dim_religious_group g ON r.group_code = g.group_code
     GROUP BY r.fips
 ),
 flat AS (
@@ -144,10 +134,6 @@ flat AS (
         m.veterans,
         m.language_noneng,
         r.religious_adherence,
-        r.evangelical_adherence,
-        r.catholic_adherence,
-        r.mainline_protestant_adherence,
-        r.other_religion_adherence,
         GREATEST(0.0, 100.0 - COALESCE(e24.margin_2024, 50) * 2)       AS opportunity_score,
         COALESCE(e24.margin_2024, 50)                                    AS risk_score,
         GREATEST(0.0, 100.0 - COALESCE(e24.margin_2024, 50) * 2) * 0.4

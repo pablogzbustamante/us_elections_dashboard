@@ -1,26 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.services.county_service import CountyService
 from app.services.election_service import ElectionService
 
 router = APIRouter(prefix="/counties", tags=["counties"])
-
-
-@router.get("/")
-async def list_counties(
-    state: str | None = Query(None, description="Filter by 2-letter state abbreviation"),
-    db: AsyncSession = Depends(get_db),
-):
-    return await CountyService(db).get_all(state)
-
-
-@router.get("/search")
-async def search_counties(
-    q: str = Query(..., min_length=2, description="County name search term"),
-    db: AsyncSession = Depends(get_db),
-):
-    return await CountyService(db).search(q)
 
 
 @router.get("/{fips}")

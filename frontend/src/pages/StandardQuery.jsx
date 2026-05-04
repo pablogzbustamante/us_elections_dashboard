@@ -804,15 +804,7 @@ const MINI_SPINNER = {
 /* ─────────────────────────────────────────────────────────────
    Default query
 ───────────────────────────────────────────────────────────── */
-const DEFAULT_SQL = `SELECT
-    s.state_name,
-    s.region,
-    COUNT(c.county_fips) AS county_count
-FROM dim_state s
-LEFT JOIN dim_county c ON c.state_fips = s.state_fips
-GROUP BY s.state_name, s.region
-ORDER BY county_count DESC
-LIMIT 20;`;
+const DEFAULT_SQL = `SELECT * FROM dim_county;`;
 
 /* ─────────────────────────────────────────────────────────────
    Main page
