@@ -1,4 +1,4 @@
-from sqlalchemy import String, SmallInteger, Integer, BigInteger, Text, Numeric, ForeignKey, UniqueConstraint
+from sqlalchemy import String, SmallInteger, Integer, Text, Numeric, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -19,29 +19,8 @@ class DimCounty(Base):
     state_abbr: Mapped[str] = mapped_column(String(2), ForeignKey("dim_state.state_abbr"))
     county_name: Mapped[str] = mapped_column(String(160))
     county_type: Mapped[str | None] = mapped_column(String(60))
-    county_search_text: Mapped[str | None] = mapped_column(Text)
 
     state: Mapped["DimState"] = relationship(back_populates="counties")
-    aliases: Mapped[list["CountyAlias"]] = relationship(back_populates="county")
-
-
-class CountyAlias(Base):
-    __tablename__ = "county_alias"
-    __table_args__ = (
-        UniqueConstraint("source_file", "source_state_raw", "source_county_name_raw"),
-    )
-
-    alias_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    fips: Mapped[str] = mapped_column(String(5), ForeignKey("dim_county.fips"))
-    source_file: Mapped[str] = mapped_column(String(120))
-    source_state_raw: Mapped[str | None] = mapped_column(Text)
-    source_county_name_raw: Mapped[str] = mapped_column(Text)
-    normalized_state: Mapped[str | None] = mapped_column(Text)
-    normalized_county_name: Mapped[str] = mapped_column(Text)
-    match_method: Mapped[str] = mapped_column(String(20), default="unresolved")
-    confidence_score: Mapped[float | None] = mapped_column(Numeric(5, 4))
-
-    county: Mapped["DimCounty"] = relationship(back_populates="aliases")
 
 
 class DimElection(Base):
@@ -105,7 +84,6 @@ class DimReligiousGroup(Base):
 
     group_code: Mapped[str] = mapped_column(String(20), primary_key=True)
     group_name: Mapped[str] = mapped_column(String(240))
-    group_search_text: Mapped[str | None] = mapped_column(Text)
 
 
 class DimRuccCode(Base):

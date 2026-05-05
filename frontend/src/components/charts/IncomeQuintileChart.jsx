@@ -1,6 +1,7 @@
+import { useState, useEffect, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer, LabelList,
+  ResponsiveContainer, LabelList,
 } from "recharts";
 
 const TRUMP_COLOR  = "#E5342A";
@@ -49,11 +50,18 @@ function CustomTooltip({ active, payload }) {
   );
 }
 
-function legendFormatter(value) {
-  return value === "avg_pct_trump" ? "Trump" : "Harris";
-}
 
 export default function IncomeQuintileChart({ data = [] }) {
+  const containerRef = useRef(null);
+  const [h, setH] = useState(300);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(e => setH(e[0].contentRect.height));
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   const chartData = data.map((d) => ({
     ...d,
     quintile_label: `Q${d.quintile}`,
@@ -61,8 +69,9 @@ export default function IncomeQuintileChart({ data = [] }) {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={chartData} margin={{ top: 22, right: -0, left: 0, bottom: 44 }} barCategoryGap="30%" barGap={8}>
+    <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+    <ResponsiveContainer width="100%" height={h}>
+      <BarChart data={chartData} margin={{ top: 18, right: 0, left: 0, bottom: 0 }} barCategoryGap="30%" barGap={8}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="quintile_label"
@@ -70,7 +79,7 @@ export default function IncomeQuintileChart({ data = [] }) {
           axisLine={false}
           tickLine={false}
           interval={0}
-          height={52}
+          height={40}
         />
         <YAxis
           domain={[0, 100]}
@@ -81,10 +90,6 @@ export default function IncomeQuintileChart({ data = [] }) {
           width={36}
         />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--surface-2)", opacity: 0.6 }} />
-        <Legend
-          wrapperStyle={{ fontSize: 12, paddingTop: 4 }}
-          formatter={legendFormatter}
-        />
         <Bar dataKey="avg_pct_trump" name="avg_pct_trump" fill={TRUMP_COLOR} radius={[3, 3, 0, 0]} maxBarSize={32}>
           <LabelList
             dataKey="avg_pct_trump"
@@ -103,5 +108,6 @@ export default function IncomeQuintileChart({ data = [] }) {
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }

@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-"""ETL: load cleaned CSVs into PostgreSQL (electoral_dashboard)."""
-
 import os
 import re
 import psycopg2
@@ -139,16 +136,14 @@ def load_counties(cur, el):
         rows.append((
             fips, r.state_abbr, r.county_name,
             county_type_from_name(r.county_name),
-            f"{r.county_name}, {r.state_abbr}",
         ))
     execute_values(
         cur,
-        """INSERT INTO dim_county (fips, state_abbr, county_name, county_type, county_search_text)
+        """INSERT INTO dim_county (fips, state_abbr, county_name, county_type)
            VALUES %s ON CONFLICT (fips) DO NOTHING""",
         rows,
     )
     print(f"  counties: {len(rows)}")
-    # Fetch all known fips from DB (handles re-runs where rows already existed)
     cur.execute("SELECT fips FROM dim_county")
     return {row[0] for row in cur.fetchall()}
 
@@ -201,7 +196,6 @@ def load_winner_history(cur, el, known_fips):
     cur.execute("SELECT election_year, election_id FROM dim_election WHERE office='President'")
     emap = {yr: eid for yr, eid in cur.fetchall()}
 
-    # Only insert 2016 and 2020 — 2024 already has full rows from load_elections_2024
     rows = []
     for r in el.itertuples(index=False):
         fips = str(r.fips).zfill(5)
@@ -233,7 +227,6 @@ def load_indicators(cur):
 
 
 def load_demographics(cur, dem, el, known_fips):
-    # dem.state_name contains the state abbreviation (e.g. "SC"), not the full name
     dfips = dem.merge(
         el[["fips", "county_name", "state_abbr"]].rename(columns={"state_abbr": "state_name"}),
         on=["county_name", "state_name"],
@@ -244,7 +237,6 @@ def load_demographics(cur, dem, el, known_fips):
     cur.execute("SELECT indicator_code, indicator_id FROM dim_indicator")
     imap = {c: i for c, i in cur.fetchall()}
 
-    # Normalize any column that wasn't renamed due to whitespace variants
     white_nh_candidates = [c for c in dfips.columns if "white" in c.lower() and "hispanic" in c.lower() and c != "ethnicity_white_nonhispanic_pct"]
     if white_nh_candidates and "ethnicity_white_nonhispanic_pct" not in dfips.columns:
         dfips = dfips.rename(columns={white_nh_candidates[0]: "ethnicity_white_nonhispanic_pct"})
@@ -337,11 +329,11 @@ def load_education(cur, edu, known_fips):
 def load_religion(cur, rel, known_fips):
     groups = rel[["group_code", "group_name"]].drop_duplicates("group_code")
     group_rows = [
-        (str(r.group_code), str(r.group_name), str(r.group_name))
+        (str(r.group_code), str(r.group_name))
         for r in groups.itertuples(index=False)
     ]
     execute_values(cur,
-        "INSERT INTO dim_religious_group (group_code,group_name,group_search_text) VALUES %s ON CONFLICT (group_code) DO NOTHING",
+        "INSERT INTO dim_religious_group (group_code,group_name) VALUES %s ON CONFLICT (group_code) DO NOTHING",
         group_rows)
     print(f"  religious groups: {len(group_rows)}")
 

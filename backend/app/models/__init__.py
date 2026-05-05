@@ -1,5 +1,5 @@
 from app.models.dimensions import (
-    DimState, DimCounty, CountyAlias,
+    DimState, DimCounty,
     DimElection, DimParty, DimCandidate,
     DimIndicator, DimEducationLevel, DimReligiousGroup,
     DimRuccCode, DimUicCode,
@@ -11,7 +11,7 @@ from app.models.facts import (
 )
 
 __all__ = [
-    "DimState", "DimCounty", "CountyAlias",
+    "DimState", "DimCounty",
     "DimElection", "DimParty", "DimCandidate",
     "DimIndicator", "DimEducationLevel", "DimReligiousGroup",
     "DimRuccCode", "DimUicCode",

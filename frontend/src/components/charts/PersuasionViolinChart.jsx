@@ -7,9 +7,8 @@ const SEGMENTS = [
   { key: "Niche Educated",      color: "#10B981" },
 ];
 
-const MARGIN  = { top: 15, right: 18, bottom: 52, left: 60 };
-const KDE_N   = 80;
-const H       = 260;
+const MARGIN = { top: 15, right: 18, bottom: 52, left: 60 };
+const KDE_N  = 80;
 
 function silvermanBw(vals) {
   const n = vals.length;
@@ -38,11 +37,16 @@ function fmtK(n) {
 export default function PersuasionViolinChart({ data = [] }) {
   const containerRef = useRef(null);
   const [w, setW]    = useState(500);
+  const [h, setH]    = useState(260);
   const [tip, setTip] = useState(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const ro = new ResizeObserver(e => setW(e[0].contentRect.width));
+    const ro = new ResizeObserver(e => {
+      const { width, height } = e[0].contentRect;
+      setW(width);
+      setH(height);
+    });
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
@@ -63,7 +67,7 @@ export default function PersuasionViolinChart({ data = [] }) {
   }, [data]);
 
   const innerW  = w - MARGIN.left - MARGIN.right;
-  const innerH  = H - MARGIN.top - MARGIN.bottom;
+  const innerH  = h - MARGIN.top - MARGIN.bottom;
   const ys      = v => MARGIN.top + innerH * (1 - (v - yMin) / (yMax - yMin));
   const xStep   = innerW / SEGMENTS.length;
   const halfVW  = Math.min(xStep * 0.40, 48);
@@ -113,8 +117,8 @@ export default function PersuasionViolinChart({ data = [] }) {
   const tipFlip = tip && (tip.xc + MARGIN.left) > w * 0.6;
 
   return (
-    <div ref={containerRef} style={{ width: "100%", height: H, position: "relative" }}>
-      <svg width={w} height={H} style={{ display: "block" }}>
+    <div ref={containerRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+      <svg width={w} height={h} style={{ display: "block" }}>
         <g transform={`translate(${MARGIN.left},0)`}>
           {yTicks.map(v => (
             <g key={v}>
@@ -155,11 +159,11 @@ export default function PersuasionViolinChart({ data = [] }) {
                     fill="white" stroke={seg.color} strokeWidth={1.5} />
                 </>
               )}
-              <text x={xc} y={H - MARGIN.bottom + 14} textAnchor="middle"
+              <text x={xc} y={h - MARGIN.bottom + 14} textAnchor="middle"
                 fontSize={9.5} fill="var(--text)" fontWeight={500}>
                 {seg.key.split(" ")[0]}
               </text>
-              <text x={xc} y={H - MARGIN.bottom + 26} textAnchor="middle"
+              <text x={xc} y={h - MARGIN.bottom + 26} textAnchor="middle"
                 fontSize={9} fill="var(--text-muted)">
                 {seg.key.split(" ").slice(1).join(" ")}
               </text>
@@ -174,7 +178,7 @@ export default function PersuasionViolinChart({ data = [] }) {
           left: tipFlip
             ? tip.xc + MARGIN.left - 148
             : tip.xc + MARGIN.left + 14,
-          top: H * 0.18,
+          top: h * 0.18,
           background: "var(--surface)",
           border: "1px solid var(--border)",
           borderRadius: 8,

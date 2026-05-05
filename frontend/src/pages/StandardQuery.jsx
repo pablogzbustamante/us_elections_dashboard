@@ -17,7 +17,6 @@ const VGAP = 36;   // vertical gap between tables
 const tblH = (t) => HH + t.columns.length * RH;
 
 const HIDDEN_TABLES = new Set([
-  "county_alias",
   "stg_demographics_raw",
   "stg_education_raw",
   "stg_elections_raw",

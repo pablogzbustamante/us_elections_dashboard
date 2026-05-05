@@ -190,29 +190,11 @@ CREATE TABLE IF NOT EXISTS dim_county (
   state_abbr CHAR(2) NOT NULL REFERENCES dim_state(state_abbr),
   county_name VARCHAR(160) NOT NULL,
   county_type VARCHAR(60),
-  county_search_text VARCHAR(320),
   UNIQUE (state_abbr, county_name)
 );
 
 CREATE INDEX idx_dim_county_state ON dim_county (state_abbr);
 CREATE INDEX idx_dim_county_search_trgm ON dim_county USING gin (county_name gin_trgm_ops);
-
-CREATE TABLE IF NOT EXISTS county_alias (
-  alias_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  fips CHAR(5) NOT NULL REFERENCES dim_county(fips),
-  source_file VARCHAR(120) NOT NULL,
-  source_state_raw VARCHAR(100),
-  source_county_name_raw VARCHAR(180) NOT NULL,
-  normalized_state VARCHAR(100),
-  normalized_county_name VARCHAR(180),
-  match_method VARCHAR(20) NOT NULL DEFAULT 'unresolved'
-    CHECK (match_method IN ('exact_fips','exact_state_county','alias','manual','unresolved')),
-  confidence_score NUMERIC(5,4),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (source_file, source_state_raw, source_county_name_raw)
-);
-
-CREATE INDEX idx_county_alias_fips ON county_alias (fips);
 
 CREATE TABLE IF NOT EXISTS dim_election (
   election_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -341,8 +323,7 @@ CREATE INDEX idx_urban_class_uic  ON fact_county_urban_class (urban_influence_co
 
 CREATE TABLE IF NOT EXISTS dim_religious_group (
   group_code VARCHAR(20) NOT NULL PRIMARY KEY,
-  group_name VARCHAR(240) NOT NULL UNIQUE,
-  group_search_text VARCHAR(360)
+  group_name VARCHAR(240) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS fact_county_religion (

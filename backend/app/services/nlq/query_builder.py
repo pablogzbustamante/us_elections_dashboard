@@ -15,6 +15,7 @@ WITH election_24 AS (
         c.state_abbr,
         s.state_name,
         es.total_votes,
+        es.margin_votes,
         es.winner_name_raw                                                          AS winner_2024,
         es.margin_pct                                                               AS margin_2024,
         es.competitiveness_score,
@@ -31,7 +32,7 @@ WITH election_24 AS (
         ON v.fips = c.fips AND v.election_id = e.election_id
     LEFT JOIN dim_candidate cand ON cand.candidate_id = v.candidate_id
     GROUP BY c.fips, c.county_name, c.state_abbr, s.state_name,
-             es.total_votes, es.winner_name_raw, es.margin_pct, es.competitiveness_score
+             es.total_votes, es.margin_votes, es.winner_name_raw, es.margin_pct, es.competitiveness_score
 ),
 election_20 AS (
     SELECT
@@ -48,6 +49,15 @@ election_20 AS (
         ON v.fips = c.fips AND v.election_id = e.election_id
     LEFT JOIN dim_candidate cand ON cand.candidate_id = v.candidate_id
     GROUP BY c.fips, es20.winner_name_raw, es20.margin_pct
+),
+election_16 AS (
+    SELECT
+        c.fips,
+        es16.winner_name_raw AS winner_2016
+    FROM dim_county c
+    JOIN dim_election e ON e.election_year = 2016 AND e.office = 'President'
+    LEFT JOIN fact_county_election_summary es16
+        ON es16.fips = c.fips AND es16.election_id = e.election_id
 ),
 metrics AS (
     SELECT
@@ -76,11 +86,36 @@ metrics AS (
         MAX(CASE WHEN i.indicator_code = 'misc_mean_travel_time_min' THEN m.metric_value END) AS mean_travel_time,
         MAX(CASE WHEN i.indicator_code = 'misc_pct_female'           THEN m.metric_value END) AS percent_female,
         MAX(CASE WHEN i.indicator_code = 'misc_veterans'             THEN m.metric_value END) AS veterans,
-        MAX(CASE WHEN i.indicator_code = 'misc_lang_noneng_pct'      THEN m.metric_value END) AS language_noneng
+        MAX(CASE WHEN i.indicator_code = 'misc_lang_noneng_pct'      THEN m.metric_value END) AS language_noneng,
+        MAX(CASE WHEN i.indicator_code = 'misc_same_house_1yr_pct'  THEN m.metric_value END) AS same_house_pct,
+        MAX(CASE WHEN i.indicator_code = 'housing_persons_per_hh'   THEN m.metric_value END) AS persons_per_household,
+        MAX(CASE WHEN i.indicator_code = 'misc_land_area_sqmi'      THEN m.metric_value END) AS land_area_sqmi,
+        MAX(CASE WHEN i.indicator_code = 'population_2010'          THEN m.metric_value END) AS population_2010,
+        MAX(CASE WHEN i.indicator_code = 'ethnicity_white_pct'      THEN m.metric_value END) AS white_alone_pct,
+        MAX(CASE WHEN i.indicator_code = 'sales_retail'             THEN m.metric_value END) AS retail_sales,
+        MAX(CASE WHEN i.indicator_code = 'sales_food_services'      THEN m.metric_value END) AS food_services_sales,
+        MAX(CASE WHEN i.indicator_code = 'misc_manuf_shipments'     THEN m.metric_value END) AS manuf_shipments,
+        MAX(CASE WHEN i.indicator_code = 'firms_total'              THEN m.metric_value END) AS firms_total,
+        MAX(CASE WHEN i.indicator_code = 'firms_women_owned'        THEN m.metric_value END) AS firms_women_owned,
+        MAX(CASE WHEN i.indicator_code = 'firms_minority_owned'     THEN m.metric_value END) AS firms_minority_owned,
+        MAX(CASE WHEN i.indicator_code = 'firms_veteran_owned'      THEN m.metric_value END) AS firms_veteran_owned,
+        MAX(CASE WHEN i.indicator_code = 'emp_nonemployer_estab'    THEN m.metric_value END) AS nonemployer_establishments
     FROM fact_county_metric m
     JOIN dim_indicator i ON m.indicator_id = i.indicator_id
     WHERE m.period_label = 'current'
     GROUP BY m.fips
+),
+education_detail AS (
+    SELECT
+        fe.fips,
+        MAX(CASE WHEN el.education_level_code = 'less_than_high_school'     THEN fe.adults_pct END) AS less_than_hs_pct,
+        MAX(CASE WHEN el.education_level_code = 'high_school_only'          THEN fe.adults_pct END) AS high_school_only_pct,
+        MAX(CASE WHEN el.education_level_code = 'some_college_or_associate' THEN fe.adults_pct END) AS some_college_pct
+    FROM fact_county_education fe
+    JOIN dim_education_level el ON el.education_level_id = fe.education_level_id
+    JOIN (SELECT fips, MAX(period_label) AS max_period FROM fact_county_education GROUP BY fips) lp
+        ON lp.fips = fe.fips AND fe.period_label = lp.max_period
+    GROUP BY fe.fips
 ),
 religion AS (
     SELECT
@@ -89,6 +124,30 @@ religion AS (
     FROM fact_county_religion r
     GROUP BY r.fips
 ),
+top_religion AS (
+    SELECT DISTINCT ON (fr.fips)
+        fr.fips,
+        rg.group_name           AS top_religious_group,
+        fr.pct_total_population AS top_religion_pct,
+        fr.congregations        AS top_religion_congregations,
+        fr.adherents            AS top_religion_adherents,
+        fr.pct_total_adherents  AS top_religion_pct_adherents
+    FROM fact_county_religion fr
+    JOIN dim_religious_group rg ON rg.group_code = fr.group_code
+    ORDER BY fr.fips, fr.adherents DESC NULLS LAST
+),
+urban AS (
+    SELECT
+        uc.fips,
+        uc.rural_urban_code,
+        rc.description AS rucc_description,
+        uc.urban_influence_code,
+        uc2.description AS uic_description
+    FROM fact_county_urban_class uc
+    LEFT JOIN dim_rucc_code rc  ON rc.code  = uc.rural_urban_code
+    LEFT JOIN dim_uic_code  uc2 ON uc2.code = uc.urban_influence_code
+    WHERE uc.classification_year = 2013
+),
 flat AS (
     SELECT
         e24.fips,
@@ -96,6 +155,7 @@ flat AS (
         e24.state_abbr,
         e24.state_name,
         e24.total_votes,
+        e24.margin_votes,
         e24.winner_2024,
         e24.trump_pct,
         e24.harris_pct,
@@ -108,6 +168,7 @@ flat AS (
         e20.biden_pct_2020,
         e20.margin_2020,
         (COALESCE(e24.trump_pct, 0) - COALESCE(e20.trump_pct_2020, 0)) AS swing_2020_2024,
+        e16.winner_2016,
         m.median_household_income,
         m.per_capita_income,
         m.hispanic_or_latino,
@@ -129,11 +190,36 @@ flat AS (
         m.housing_units,
         m.bachelor_degree_or_higher,
         m.high_school_or_higher,
+        ed.less_than_hs_pct,
+        ed.high_school_only_pct,
+        ed.some_college_pct,
         m.mean_travel_time,
         m.percent_female,
         m.veterans,
         m.language_noneng,
+        m.same_house_pct,
+        m.persons_per_household,
+        m.land_area_sqmi,
+        m.population_2010,
+        m.white_alone_pct,
+        m.retail_sales,
+        m.food_services_sales,
+        m.manuf_shipments,
+        m.firms_total,
+        m.firms_women_owned,
+        m.firms_minority_owned,
+        m.firms_veteran_owned,
+        m.nonemployer_establishments,
         r.religious_adherence,
+        tr.top_religious_group,
+        tr.top_religion_pct,
+        tr.top_religion_congregations,
+        tr.top_religion_adherents,
+        tr.top_religion_pct_adherents,
+        u.rural_urban_code,
+        u.rucc_description,
+        u.urban_influence_code,
+        u.uic_description,
         GREATEST(0.0, 100.0 - COALESCE(e24.margin_2024, 50) * 2)       AS opportunity_score,
         COALESCE(e24.margin_2024, 50)                                    AS risk_score,
         GREATEST(0.0, 100.0 - COALESCE(e24.margin_2024, 50) * 2) * 0.4
@@ -149,9 +235,13 @@ flat AS (
             ELSE 'Low Priority'
         END AS recommended_action
     FROM election_24 e24
-    LEFT JOIN election_20 e20 ON e24.fips = e20.fips
-    LEFT JOIN metrics m       ON e24.fips = m.fips
-    LEFT JOIN religion r      ON e24.fips = r.fips
+    LEFT JOIN election_20 e20    ON e24.fips = e20.fips
+    LEFT JOIN election_16 e16    ON e24.fips = e16.fips
+    LEFT JOIN metrics m          ON e24.fips = m.fips
+    LEFT JOIN education_detail ed ON e24.fips = ed.fips
+    LEFT JOIN religion r         ON e24.fips = r.fips
+    LEFT JOIN top_religion tr    ON e24.fips = tr.fips
+    LEFT JOIN urban u            ON e24.fips = u.fips
 )
 """
 

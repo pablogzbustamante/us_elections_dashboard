@@ -517,12 +517,10 @@ export default function Economic() {
         </div>
         {/* ── Visual 9: Income Distribution by Persuasion Segment ── */}
         <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-          <div className="card-header" style={{ flexShrink: 0 }}>
-            <div>
-              <span className="card-title">Income by Persuasion Segment</span>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
-                Income distribution within education-based voter segments
-              </div>
+          <div className="card-header" style={{ flexShrink: 0, flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+            <span className="card-title" style={{ whiteSpace: "nowrap" }}>Income by Persuasion Segment</span>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+              Income distribution within education-based voter segments
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {[
@@ -531,7 +529,7 @@ export default function Economic() {
                 { label: "Low Eng.", color: "#6B7280" },
                 { label: "Niche", color: "#10B981" },
               ].map(s => (
-                <span key={s.label} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "var(--text-muted)" }}>
+                <span key={s.label} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
                   <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, display: "inline-block" }} />
                   {s.label}
                 </span>
